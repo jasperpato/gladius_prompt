@@ -34,11 +34,13 @@ def is_valid_cabin(cabin: str):
 
 def is_valid_air_date(date: str):
   d = '[0-9]'
-  if re.fullmatch(f'{d}{d}{d}{d}-{d}{d}-{d}{d}', date):
-    today = datetime.date.today()
-    date = datetime.date(int(date[:4]), int(date[5:7]), int(date[8:10]))
-    if (diff := (date - today).days) > 0:
-      return diff
+  try:
+    if re.fullmatch(f'{d}{d}{d}{d}-{d}{d}-{d}{d}', date):
+      today = datetime.date.today()
+      date = datetime.date(int(date[:4]), int(date[5:7]), int(date[8:10]))
+      if (diff := (date - today).days) > 0:
+        return diff
+  except: pass
   return False
 
 def is_valid_shop_date(date: str):
@@ -101,13 +103,13 @@ class GladiusPrompt(cmd.Cmd):
     def error(self):
       self.respond(self.__class__.ERROR_RESPONSE)
 
-    def exit_air(self):
+    def reset(self):
       self.in_air = False
       self.has_segment = False
       self.__class__.prompt = self.__class__.init_prompt
 
     def default(self, _):
-      self.exit_air()
+      self.reset()
       self.error()
 
     def do_shop(self, arg: str):
@@ -128,7 +130,7 @@ class GladiusPrompt(cmd.Cmd):
       if self.in_air and is_valid_segment(arg.split()):
         self.has_segment = True
       else:
-        self.exit_air()
+        self.reset()
         self.error()
 
     def do_EOC(self, _):
@@ -136,7 +138,7 @@ class GladiusPrompt(cmd.Cmd):
         self.respond(self.__class__.AIR_RESPONSE)
       else:
         self.error()
-      self.exit_air
+      self.reset()
 
 # --------------------
 
