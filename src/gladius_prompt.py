@@ -1,3 +1,9 @@
+'''
+A parser and read–eval–print (REPL) loop for the GLADIUS command syntax described in the project spec for CITS5501 Sem 1 2023.
+Responds with 'OK' on valid commands and 'Error' on invalid commands.
+If an invalid line is given within the "air book req" command, the command is aborted.
+'''
+
 import cmd
 import pathlib
 import re
@@ -5,13 +11,10 @@ import datetime
 
 parent = pathlib.Path(__file__).parent
 
-AIRPORT_CODES = [line.strip() for line in open(parent / '../../iata_codes/airport_codes.txt', 'r')]
-AIRLINE_CODES = [line.strip() for line in open(parent / '../../iata_codes/airline_codes.txt', 'r')]
-CABIN_TYPES = 'PFJCSY'
+AIRPORT_CODES = [line.strip() for line in open(parent / '../iata_codes/airport_codes.txt', 'r')]
+AIRLINE_CODES = [line.strip() for line in open(parent / '../iata_codes/airline_codes.txt', 'r')]
 
-SHOP_RESPONSE = 'OK'
-AIR_RESPONSE = 'OK'
-ERROR_REPONSE = 'Error'
+CABIN_TYPES = 'PFJCSY'
 
 # ----- validation functions -----
 
@@ -47,8 +50,9 @@ def is_valid_seats(seats: str):
 
 # ----- parsing functions -----
 
-def parse_shop(args: list[str]):
-  if len(args) >= 7 and (
+def is_valid_shop(args: list):
+  return (
+    len(args) >= 7 and
     args[:2] == ['flight', 'fares'] and
     is_valid_airport(args[2]) and
     is_valid_airport(args[3]) and
@@ -58,25 +62,19 @@ def parse_shop(args: list[str]):
     ) and
     is_valid_cabin(args[-2]) and
     is_valid_shop_date(args[-1])
-  ):
-    return SHOP_RESPONSE
-  else:
-    return ERROR_REPONSE
+  )
 
-def parse_segments(segments: list[list[str]]):
-  for seg in segments:
-    if (
-      len(seg) != 6 or
-      not is_valid_airport(seg[0]) or
-      not is_valid_airport(seg[1]) or
-      seg[0] == seg[1] or
-      not is_valid_airline(seg[2]) or
-      not is_valid_air_date(seg[3]) or
-      not is_valid_cabin(seg[4]) or
-      not is_valid_seats(seg[5])
-    ):
-      return ERROR_REPONSE
-  return AIR_RESPONSE
+def is_valid_segment(seg: list):
+  return (
+    len(seg) == 6 and
+    is_valid_airport(seg[0]) and
+    is_valid_airport(seg[1]) and
+    seg[0] != seg[1] and
+    is_valid_airline(seg[2]) and
+    is_valid_air_date(seg[3]) and
+    is_valid_cabin(seg[4]) and
+    is_valid_seats(seg[5])
+  )
 
 # ----- REPL -----
 
@@ -84,47 +82,61 @@ class GladiusPrompt(cmd.Cmd):
     init_prompt = 'gladius> '
     prompt = init_prompt
 
+    SHOP_RESPONSE = 'OK'
+    AIR_RESPONSE = 'OK'
+    ERROR_RESPONSE = 'Error'
+
     def __init__(self, reply=True):
       super().__init__()
       self.reply = reply
       self.last_response = ''
+
       self.in_air = False
-      self.segments = []
+      self.has_segment = False
+
+    def respond(self, msg):
+      self.last_response = msg
+      if self.reply: print(self.last_response)
+
+    def error(self):
+      self.respond(self.__class__.ERROR_RESPONSE)
+
+    def exit_air(self):
+      self.in_air = False
+      self.has_segment = False
+      self.__class__.prompt = self.__class__.init_prompt
 
     def default(self, _):
-      self.last_response = ERROR_REPONSE
-      if self.reply:
-        print(self.last_response)
+      self.exit_air()
+      self.error()
 
     def do_shop(self, arg: str):
-      args = arg.split()
-      self.last_response = parse_shop(args)
-      if self.reply: print(self.last_response)
+      if is_valid_shop(arg.split()):
+        self.respond(self.__class__.SHOP_RESPONSE)
+      else:
+        self.error()
       
     def do_air(self, arg: str):
-      args = arg.split()
-      if args[:2] == ['book', 'req']:
+      if arg.split() == ['book', 'req']:
         self.in_air = True
-        self.segments = []
         self.__class__.prompt = '... '.rjust(len(self.__class__.init_prompt))
+        self.last_response = ''
+      else:
+        self.error()
 
     def do_seg(self, arg: str):
-      if self.in_air:
-        args = arg.split()
-        self.segments.append(args)
-      elif self.reply:
-        self.last_response = ERROR_REPONSE
-        print(self.last_response)
+      if self.in_air and is_valid_segment(arg.split()):
+        self.has_segment = True
+      else:
+        self.exit_air()
+        self.error()
 
     def do_EOC(self, _):
-      if self.segments:
-        self.last_response = parse_segments(self.segments)
-        if self.reply: print(self.last_response)
-        self.in_air = False
-        self.__class__.prompt = self.__class__.init_prompt
-      elif self.reply:
-        self.last_response = ERROR_REPONSE
-        print(self.last_response)
+      if self.has_segment:
+        self.respond(self.__class__.AIR_RESPONSE)
+      else:
+        self.error()
+      self.exit_air
 
 # --------------------
 
