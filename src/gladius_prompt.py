@@ -3,6 +3,20 @@ A parser and read–eval–print (REPL) loop for the GLADIUS command syntax desc
 Responds with 'OK' on valid commands and 'Error' on invalid commands.
 If an invalid line is given within the "air book req" command, the command is aborted.
 '''
+ # ----- intro -----
+
+INTRO = '''
+Welcome to GLADIUS parser and REPL.
+Responds with 'OK' to valid commands and 'Error' to invalid commands.
+Example commands:
+  - shop flight fares AAA AAB OneWay C 2023-07-07
+  - air book req
+    seg AAA AAB AA1 2023-07-07 C 5
+    EOC
+
+Jasper Paterson 22736341
+CITS5501 Project Sem 1 2023
+'''
 
 import cmd
 import pathlib
@@ -83,6 +97,7 @@ def is_valid_segment(seg: list):
 class GladiusPrompt(cmd.Cmd):
     init_prompt = 'gladius> '
     prompt = init_prompt
+    intro=INTRO
 
     SHOP_RESPONSE = 'OK'
     AIR_RESPONSE = 'OK'
